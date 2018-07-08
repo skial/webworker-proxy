@@ -1,0 +1,26 @@
+-lib tink_macro
+
+-cp src
+-cp test
+
+-debug
+-dce full
+
+-D analyzer-optimize
+
+-main Entry
+
+--each
+
+# The main thread/browser UI thread.
+-js bin/main.js
+
+--next
+
+-D webworker
+
+-js bin/ww.js
+
+--next
+
+--cmd exit
