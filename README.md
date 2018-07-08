@@ -27,6 +27,8 @@ Add `-lib webworker-proxy` once you've added webworker-proxy as a dependancy.
 
 ## Usage
 
+See [`test/Entry.hx`](https://github.com/skial/webworker-proxy/blob/master/test/Entry.hx) for an alternative example.
+
 ### `Main.hx`
 ```Haxe
 package ;
