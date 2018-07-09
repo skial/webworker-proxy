@@ -11,6 +11,7 @@ using tink.MacroApi;
 private enum abstract SConsts(String) to String {
     var Proxy = 'WorkerProxy';
     var WebWorker = 'webworker';
+    var Debug = 'debug_workerproxy';
 }
 
 private typedef Data = {
@@ -177,16 +178,16 @@ class WorkerProxy {
                 }
 
                 public function onmessage(e:js.html.MessageEvent):Void {
-                    //trace( /*$v{isWebWorker ? 'receive' : 'sent'}, */e.data );
+                    $e{Debug.defined() ? macro @:privateAccess WorkerChannel.scope.console.log( $v{isWebWorker ? 'webworker' : 'ui thread'}, e.data ) : macro null};
                     var data:{id:String, values:Array<Any>, stamp:Float} = e.data;
                     $eswitch;
                 }
             }
 
-            definition.meta = [{name: isWebWorker?':worker':'main_thread', params:[], pos:ctx.pos}];
+            definition.meta = [{name: isWebWorker?':worker':':main_thread', params:[], pos:ctx.pos}];
             definition.fields = definition.fields.concat( fields );
 
-            if ('debug_workerproxy'.defined()) {
+            if (Debug.defined()) {
                 trace( new haxe.macro.Printer().printTypeDefinition(definition) );
 
             }

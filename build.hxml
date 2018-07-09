@@ -1,4 +1,5 @@
 -lib tink_macro
+-lib hxbit
 
 -cp src
 -cp test
@@ -7,6 +8,7 @@
 -dce full
 
 -D analyzer-optimize
+#-D debug_workerproxy
 
 -main Entry
 

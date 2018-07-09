@@ -2,6 +2,7 @@ package ;
 
 import WorkerProxy;
 import WorkerChannel;
+import haxe.io.Bytes;
 import js.html.Worker;
 
 using tink.CoreApi;
@@ -36,6 +37,17 @@ class Entry {
             proxy.b.next( v -> 'proxy.b == $v' )
             .handle( tracer );
         #end
+
+        var u = new User('bob', 2);
+        var t:Transferable<Bytes> = u;
+        trace( t );
+        var bits = new WorkerProxy<UserProxy>(
+            #if !webworker
+            new Worker('ww.js')
+            #else
+            new UserProxy()
+            #end
+        );
     }
 
     static function tracer(o:Outcome<String, Error>) switch o{
@@ -68,4 +80,21 @@ class Test extends WorkerChannel {
 
     public function multi(a:Int, b:Int) return mult(a, b);
 
+}
+
+class UserProxy extends WorkerChannel {
+    public function new() {}
+    public function getUser(name:String):Transferable<User> {
+        //return new User(name, 3 * name.length);
+        return null;
+    }
+}
+
+class User implements hxbit.Serializable {
+    @:s public var name:String;
+    @:s public var age:Int;
+    public function new(n:String, a:Int) {
+        name = n;
+        age = a;
+    }
 }
