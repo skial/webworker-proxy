@@ -39,7 +39,12 @@ class Entry {
         #end
 
         var u = new User('bob', 2);
-        var t:Transferable<Bytes> = u;
+        var t = Transferable.of(u);
+        var b:haxe.io.Bytes = t.unwrap();
+        trace( t );
+        var u:User = t.get();
+        var t = Transferable.of(b);
+        trace( u );
         trace( t );
         var bits = new WorkerProxy<UserProxy>(
             #if !webworker
@@ -50,7 +55,7 @@ class Entry {
         );
     }
 
-    static function tracer(o:Outcome<String, Error>) switch o{
+    static function tracer(o:Outcome<String, Error>) switch o {
         case Success(v): trace(v);
         case Failure(e): trace(e);
     }
