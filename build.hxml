@@ -7,8 +7,10 @@
 -debug
 -dce full
 
+-D eval-stack
+-D wwp-debug
 -D analyzer-optimize
-#-D debug_workerproxy
+#-D wwp-std-serializer
 
 -main Entry
 
@@ -23,6 +25,6 @@
 
 -js bin/ww.js
 
---next
+#--next
 
---cmd exit
+#--cmd exit

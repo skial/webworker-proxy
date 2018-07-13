@@ -23,7 +23,8 @@ Add `-lib webworker-proxy` once you've added webworker-proxy as a dependancy.
 ## Defines
 
 - `-D webworker`
-- `-D debug_workerproxy` Will trace out what the macro is generating.
+- `-D wwp-debug` Will trace out what the various macro's are generating.
+- `-D wwp-std-serializer` Enables `Transferable<T>` to use the standard library [Serializer](https://api.haxe.org/haxe/Serializer.html)/[Unserializer](https://api.haxe.org/haxe/Unserializer.html) to transfer objects.
 
 ## Usage
 

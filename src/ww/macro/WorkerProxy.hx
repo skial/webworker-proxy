@@ -2,6 +2,7 @@ package ww.macro;
 
 import haxe.macro.Type;
 import haxe.macro.Expr;
+import ww.macro.Defines;
 import tink.macro.BuildCache;
 
 using ww.macro.WorkerProxy;
@@ -10,8 +11,6 @@ using tink.MacroApi;
 
 private enum abstract SConsts(String) to String {
     var Proxy = 'WorkerProxy';
-    var WebWorker = 'webworker';
-    var Debug = 'debug_workerproxy';
 }
 
 private typedef Data = {
@@ -22,7 +21,6 @@ private typedef Data = {
 
 class WorkerProxy {
 
-    static var isWebWorker = WebWorker.defined();
     static var WorkerLike = (macro:WorkerProxy.WorkerLike);
     static var keywords = ['postMessage', 'onmessage', 'onerror'];
     public static function build() {
@@ -145,10 +143,10 @@ class WorkerProxy {
             }
 
             var className = ctx.name;
-            var ctorType:ComplexType = isWebWorker ? ctype : WorkerLike;
+            var ctorType:ComplexType = WebWorker ? ctype : WorkerLike;
             var eswitch = {expr:ESwitch(macro data.id, cases, macro {}), pos:ctx.pos};
 
-            var ctorBody = if (isWebWorker) {
+            var ctorBody = if (WebWorker) {
                 macro @:mergeBlock {
                     this.raw = raw;
                     self = raw;
@@ -161,8 +159,8 @@ class WorkerProxy {
                 }
             }
 
-            var stype = isWebWorker ? macro:js.html.DedicatedWorkerGlobalScope : ctype;
-            var sexpr = isWebWorker ? macro js.Syntax.code('self') : macro null;
+            var stype = WebWorker ? macro:js.html.DedicatedWorkerGlobalScope : ctype;
+            var sexpr = WebWorker ? macro js.Syntax.code('self') : macro null;
 
             var definition = macro class $className {
                 private static var counter = 0;
@@ -178,16 +176,16 @@ class WorkerProxy {
                 }
 
                 public function onmessage(e:js.html.MessageEvent):Void {
-                    $e{Debug.defined() ? macro @:privateAccess WorkerChannel.scope.console.log( $v{isWebWorker ? 'webworker' : 'ui thread'}, e.data ) : macro null};
+                    $e{WWP_Debug ? macro @:privateAccess WorkerChannel.scope.console.log( $v{WebWorker ? 'webworker' : 'ui thread'}, e.data ) : macro null};
                     var data:{id:String, values:Array<Any>, stamp:Float} = e.data;
                     $eswitch;
                 }
             }
 
-            definition.meta = [{name: isWebWorker?':worker':':main_thread', params:[], pos:ctx.pos}];
+            definition.meta = [{name: WebWorker?':worker':':main_thread', params:[], pos:ctx.pos}];
             definition.fields = definition.fields.concat( fields );
 
-            if (Debug.defined()) {
+            if (WWP_Debug) {
                 trace( new haxe.macro.Printer().printTypeDefinition(definition) );
 
             }
@@ -199,13 +197,24 @@ class WorkerProxy {
     private static function proxy(field:ClassField, data:Data):{bodies:Map<String, Expr>, cases:Array<Case>} {
         var ctype = data.ret;
         var name = field.name;
+        var movable = false;
         var result = { bodies: new Map(), cases: [] };
+
+        switch (macro Transferable.of((null:$ctype))).typeof() {
+            case Success(t): 
+                ctype = t.toComplex();
+                movable = true;
+
+            case Failure(e): 
+                trace(e);
+
+        }
 
         switch (macro tink.CoreApi.Promise.lift((null:$ctype))).typeof() {
             case Success(t): ctype = t.toComplex();
             case Failure(e): trace( e );
         }
-
+        
         var ctrigger = ctype;
 
         switch ( macro ww.macro.Utils.unwrap(tink.CoreApi.Promise.lift((null:$ctype))) ).typeof() {
@@ -214,7 +223,7 @@ class WorkerProxy {
         }
 
         switch field.kind {
-            case FieldKind.FVar(r, w) if (isWebWorker):
+            case FieldKind.FVar(r, w) if (WebWorker.defined()):
                 // webworker getter
                 result.bodies.set( name, macro null );
                 if (r.allowed()) {
@@ -240,7 +249,7 @@ class WorkerProxy {
                 result.bodies.set( name, macro null );
                 // main thread getter
                 if (r.allowed()) {
-                    result.bodies.set( 'get_$name', 'get_$name'.proxyWait(ctrigger, macro []) );
+                    result.bodies.set( 'get_$name', 'get_$name'.proxyWait(ctrigger, macro [], data) );
                     result.cases.push( 'get_$name'.proxyCheck(ctrigger, macro data.values[0]) );
 
                 }
@@ -271,7 +280,7 @@ class WorkerProxy {
 
                 result.cases.push( 'set_$name'.proxyCheck(ctrigger, macro data.values[0]) );
 
-            case FieldKind.FMethod(_) if (isWebWorker):
+            case FieldKind.FMethod(_) if (WebWorker.defined()):
                 var bodyArgs = [for (arg in data.args) macro $i{arg.name}];
                 var caseArgs = [for (i in 0...data.args.length) macro data.values[$v{i}]];
                 var caseBody = if (data.capture) {
@@ -295,7 +304,7 @@ class WorkerProxy {
 
             case FieldKind.FMethod(_):
                 var args = data.args.map( arg -> macro $i{arg.name} );
-                result.bodies.set( name, name.proxyWait(ctrigger, macro [$a{args}]) );
+                result.bodies.set( name, name.proxyWait(ctrigger, macro [$a{args}], data) );
                 result.cases.push({
                     values: [macro $v{name}],
                     guard: macro cache.exists($v{name} + data.stamp),
@@ -313,7 +322,8 @@ class WorkerProxy {
         return !v.match(AccNo | AccNever | AccCtor);
     }
 
-    private static function proxyWait(name:String, ctrigger:ComplexType, values:Expr):Expr {
+    private static function proxyWait(name:String, ctrigger:ComplexType, values:Expr, data:Data):Expr {
+        if (ctrigger.isTransferable()) ctrigger = data.ret;
         return macro {
             var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = tink.CoreApi.Future.trigger();
             var stamp = js.Browser.window.performance.now() + (++counter * Math.random());
@@ -346,8 +356,14 @@ class WorkerProxy {
         }
     }
 
-    private static function proxyReply(values:Expr):Expr {
-        return macro scope.postMessage( {id:data.id, values:$values, stamp: data.stamp} );
+    private static function proxyReply(values:Expr, transfer:Bool = false):Expr {
+        return transfer
+        ? macro scope.postMessage( {id:data.id, values:$values, stamp:data.stamp}, [] )
+        : macro scope.postMessage( {id:data.id, values:$values, stamp:data.stamp} );
+    }
+
+    private static function isTransferable(c:ComplexType):Bool {
+        return (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( (macro:Transferable<haxe.io.Bytes>).toType().sure() );
     }
 
 }

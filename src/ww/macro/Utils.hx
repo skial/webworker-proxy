@@ -7,14 +7,14 @@ class Utils {
     }
 
     #if (hxbit && !(macro || eval))
-    @:isVar public static var serializer(get, null):hxbit.Serializer;
+    @:isVar public static var hxbit(get, null):hxbit.Serializer;
 
-    private static function get_serializer():hxbit.Serializer {
-        if (serializer == null) {
-            serializer = new hxbit.Serializer();
+    private static function get_hxbit():hxbit.Serializer {
+        if (hxbit == null) {
+            hxbit = new hxbit.Serializer();
         }
 
-        return serializer;
+        return hxbit;
     }
     #end
 

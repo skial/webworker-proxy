@@ -4,13 +4,14 @@ import WorkerProxy;
 import WorkerChannel;
 import haxe.io.Bytes;
 import js.html.Worker;
+import Transferable.*;
 
 using tink.CoreApi;
 
 class Entry {
 
     public static function main() {
-        var proxy = new WorkerProxy<Test>(
+        /*var proxy = new WorkerProxy<Test>(
             #if !webworker
             new Worker('ww.js')
             #else
@@ -36,16 +37,8 @@ class Entry {
         for (i in 0...4) 
             proxy.b.next( v -> 'proxy.b == $v' )
             .handle( tracer );
-        #end
+        #end*/
 
-        var u = new User('bob', 2);
-        var t = Transferable.of(u);
-        var b:haxe.io.Bytes = t.unwrap();
-        trace( t );
-        var u:User = t.get();
-        var t = Transferable.of(b);
-        trace( u );
-        trace( t );
         var bits = new WorkerProxy<UserProxy>(
             #if !webworker
             new Worker('ww.js')
@@ -53,6 +46,17 @@ class Entry {
             new UserProxy()
             #end
         );
+
+        #if !webworker
+        bits.getUser('bobby')/*
+            .next( u -> {
+                var r:User = u.get();
+                r;
+             } )*/
+            .next( u -> '${u.name} is ${u.age} years old.' )
+            .handle( tracer );
+        #end
+        trace( bits );
     }
 
     static function tracer(o:Outcome<String, Error>) switch o {
@@ -60,6 +64,11 @@ class Entry {
         case Failure(e): trace(e);
     }
 
+}
+
+class Foo {
+    public var a:Int = 8;
+    public function new() {}
 }
 
 class Test extends WorkerChannel {
@@ -89,9 +98,8 @@ class Test extends WorkerChannel {
 
 class UserProxy extends WorkerChannel {
     public function new() {}
-    public function getUser(name:String):Transferable<User> {
-        //return new User(name, 3 * name.length);
-        return null;
+    public function getUser(name:String):User {
+        return new User(name, 3 * name.length);
     }
 }
 
