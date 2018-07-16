@@ -17,6 +17,9 @@ using tink.MacroApi;
 private enum abstract SError(String) to String {
     var WWP01_HxBit_Func = 'Functions can not be transferred. Consider https://github.com/ncannasse/hxbit#unsupported-types';
     var WWP02_Std_Func = 'haxe.Serializer can not encode methods. See https://api.haxe.org/haxe/Serializer.html';
+    var WWP03_JS_Func = 'JavaScript\'s structured clone algorithm can not duplicate functions. See https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm';
+    var WWP04_JS_Error = 'JavaScript\'s structured clone algorithm can not duplicated errors. See https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm';
+    var WWP05_JS_DOM = 'Attempting to clone DOM nodes will likewise throw a DATA_CLONE_ERR exception. See https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm';
 }
 
 #if (macro||eval)
@@ -36,6 +39,12 @@ private abstract C(ComplexType) from ComplexType to ComplexType {
     public static var Bytes(get, never):C;
     static function get_Bytes():C return macro:haxe.io.Bytes;
 
+    public static var JsError(get, never):C;
+    static function get_JsError():C return macro:js.Error;
+
+    public static var JsNode(get, never):C;
+    static function get_JsNode():C return macro:js.html.Node;
+
     @:to public function toType():haxe.macro.Type {
         return this.toType().sure();
     }
@@ -52,9 +61,9 @@ abstract Transferable<T>(T) {
     public var moved(get, never):Bool;
     inline function get_moved():Bool return this == null;
     public inline function new(v) this = v;
-    public inline function unwrap():T return this;
+    @:to public inline function unwrap():T return this;
 
-    public static macro function of<A>(self:Expr, args:Array<Expr>):ExprOf<Transferable<A>> {
+    @:from public static macro function of<A>(self:Expr):ExprOf<Transferable<A>> {
         var result = macro new Transferable($self);
 
         var type:Type = switch self.typeof() {
@@ -64,22 +73,7 @@ abstract Transferable<T>(T) {
                 null;
         }
 
-        if (HxBit.defined() && self.is(C.HxBitSerializable)) {
-            detectIllegalTypes(type, self.pos, true, false);
-            result = macro @:mergeBlock {
-                var bytes:haxe.io.Bytes = ww.macro.Utils.hxbit.serialize($self);
-                var t:Transferable<haxe.io.Bytes> = new Transferable(bytes);
-                t;
-            }
-
-        } else if (WWP_Std_Serializer.defined() && !self.is(C.Bytes) && type.match(TInst(_, _))) {
-            detectIllegalTypes(type, self.pos, false, true);
-            result = macro @:mergeBlock {
-                var t:Transferable<String> = new Transferable(haxe.Serializer.run($self));
-                t;
-            }
-
-        }
+        if (!WWP_DisableCheck.defined()) detectIllegalTypes(type, self.pos);
 
         if (WWP_Debug) trace( result.toString() );
 
@@ -87,13 +81,13 @@ abstract Transferable<T>(T) {
     }
 
     public macro function get<A>(self:Expr):ExprOf<A> {
-        var result = self;
+        var result = macro $self.unwrap();
         var raw = (macro $self.unwrap()).typeof();
         var out = haxe.macro.Context.getExpectedType();
         var ctype = out.toComplex();
         var cls = ctype.toString().resolve();
         
-        switch raw {
+        /*switch raw {
             case Success(t):
                 if (HxBit.defined() && out.unify(C.HxBitSerializable) && t.unify(C.Bytes)) {
                     result = macro ww.macro.Utils.hxbit.unserialize(($self.unwrap()), $cls);
@@ -106,7 +100,7 @@ abstract Transferable<T>(T) {
             case Failure(e):
                 trace( e );
 
-        }
+        }*/
 
         if (WWP_Debug) trace( result.toString() );
 
@@ -118,7 +112,7 @@ abstract Transferable<T>(T) {
     }
 
     #if (macro||eval)
-    private static function detectIllegalTypes(type:Type, pos:Position, ?hxbit:Bool = false, stdSerial:Bool = false) {
+    /*private static function detectIllegalTypes(type:Type, pos:Position, ?hxbit:Bool = false, stdSerial:Bool = false) {
         if (type == null) return;
         if (WWP_Debug) {
             trace( 'hxbit: $hxbit | std: $stdSerial' );
@@ -155,6 +149,51 @@ abstract Transferable<T>(T) {
 
             case TFun(_, _) if (stdSerial):
                 WWP02_Std_Func.fatalError( pos );
+
+            case x:
+                if (WWP_Debug.defined()) trace( x );
+
+        }
+
+    }*/
+
+    private static function detectIllegalTypes(type:Type, pos:Position) {
+        if (type == null) return;
+
+        if (WWP_Debug) {
+            trace( type.reduce(false) );
+        }
+
+        var repeat = detectIllegalTypes.bind(_, _);
+        switch type.reduce(false) {
+            case TInst(_.get() => cls, _) if (JS.defined() && cls.isExtern):
+                if (type.unify(C.JsError)) WWP04_JS_Error.fatalError( pos );
+                if (type.unify(C.JsNode)) WWP05_JS_DOM.fatalError( pos );
+
+            case TInst(_.get() => cls, params) if (!cls.meta.has(CoreApi) && !cls.isInterface):
+                for (f in cls.fields.get()) {
+                    repeat(f.type, f.pos);
+                    for (p in f.params) repeat(p.t, f.pos);
+                }
+
+                for (s in cls.statics.get()) {
+                    repeat(s.type, s.pos);
+                    for (p in s.params) repeat(p.t, s.pos);
+                }
+
+                for (p in params) repeat(p, pos);
+
+            case TEnum(_.get() => enm, params) if (!enm.meta.has(CoreApi)):
+                for (key in enm.constructs.keys()) {
+                    var f = enm.constructs.get(key);
+                    repeat(f.type, f.pos);
+                    for (p in f.params) repeat(p.t, f.pos);
+                }
+
+                for (p in params) repeat(p, pos);
+
+            case TFun(_, _) if (JS.defined()):
+                WWP03_JS_Func.fatalError( pos );
 
             case x:
                 if (WWP_Debug.defined()) trace( x );

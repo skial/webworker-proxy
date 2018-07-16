@@ -5,6 +5,7 @@ import haxe.macro.Expr;
 import ww.macro.Defines;
 import tink.macro.BuildCache;
 
+using StringTools;
 using ww.macro.WorkerProxy;
 using haxe.macro.Context;
 using tink.MacroApi;
@@ -200,7 +201,9 @@ class WorkerProxy {
         var movable = false;
         var result = { bodies: new Map(), cases: [] };
 
-        switch (macro Transferable.of((null:$ctype))).typeof() {
+        if (WWP_Debug.defined()) trace( ctype );
+        
+        if (!ctype.isTransferable()) switch (macro Transferable.of((null:$ctype))).typeof() {
             case Success(t): 
                 ctype = t.toComplex();
                 movable = true;
@@ -284,11 +287,16 @@ class WorkerProxy {
                 var bodyArgs = [for (arg in data.args) macro $i{arg.name}];
                 var caseArgs = [for (i in 0...data.args.length) macro data.values[$v{i}]];
                 var caseBody = if (data.capture) {
-                    (macro [raw.$name( $a{caseArgs} )]).proxyReply();
+                    macro @:mergeBlock {
+                        @:reply1 var result = ww.macro.Utils.createStdTransferable(raw.$name( $a{caseArgs} ));
+                        trace( result );
+                        $e{(macro [result]).proxyReply(ctype.isTransferable())};
+                    }
+                    //(macro @:reply1 [raw.$name( $a{caseArgs} )]).proxyReply(movable);
                 } else {
                     macro @:mergeBlock {
                         raw.$name( $a{caseArgs} );
-                        $e{(macro [tink.CoreApi.Noise.Noise]).proxyReply()};
+                        @:reply2 $e{(macro [tink.CoreApi.Noise.Noise]).proxyReply()};
                     }
                 }
                 
@@ -323,7 +331,7 @@ class WorkerProxy {
     }
 
     private static function proxyWait(name:String, ctrigger:ComplexType, values:Expr, data:Data):Expr {
-        if (ctrigger.isTransferable()) ctrigger = data.ret;
+        //if (ctrigger.isTransferable()) ctrigger = data.ret/*.unwrapTransfer()*/;
         return macro {
             var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = tink.CoreApi.Future.trigger();
             var stamp = js.Browser.window.performance.now() + (++counter * Math.random());
@@ -337,9 +345,11 @@ class WorkerProxy {
     }
 
     private static function proxyTrigger(name:String, ctrigger:ComplexType):Expr {
+        var movable = ctrigger.isTransferable();
+        var unwrapped = movable ? ctrigger.unwrapTransfer() : ctrigger;
         return macro @:mergeBlock {
             var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = cast cache.get($v{name} + data.stamp);
-            trigger.trigger(data.values[0]);
+            trigger.trigger(ww.macro.Utils.readStdTransferable(data.values[0]));
             cache.remove($v{name} + data.stamp);
         }
     }
@@ -358,12 +368,16 @@ class WorkerProxy {
 
     private static function proxyReply(values:Expr, transfer:Bool = false):Expr {
         return transfer
-        ? macro scope.postMessage( {id:data.id, values:$values, stamp:data.stamp}, [] )
+        ? macro scope.postMessage( {id:data.id, values:$values, stamp:data.stamp}, $values )
         : macro scope.postMessage( {id:data.id, values:$values, stamp:data.stamp} );
     }
 
     private static function isTransferable(c:ComplexType):Bool {
         return (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( (macro:Transferable<haxe.io.Bytes>).toType().sure() );
+    }
+
+    private static function unwrapTransfer(c:ComplexType):ComplexType {
+        return (macro (null:$c).unwrap()).typeof().sure().toComplex();
     }
 
 }

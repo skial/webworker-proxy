@@ -48,11 +48,8 @@ class Entry {
         );
 
         #if !webworker
-        bits.getUser('bobby')/*
-            .next( u -> {
-                var r:User = u.get();
-                r;
-             } )*/
+        bits.getUser('bobby')
+            .next( u -> u.get() )
             .next( u -> '${u.name} is ${u.age} years old.' )
             .handle( tracer );
         #end
@@ -98,12 +95,12 @@ class Test extends WorkerChannel {
 
 class UserProxy extends WorkerChannel {
     public function new() {}
-    public function getUser(name:String):User {
+    public function getUser(name:String):Transferable<User> {
         return new User(name, 3 * name.length);
     }
 }
 
-class User implements hxbit.Serializable {
+class User /*implements hxbit.Serializable*/ {
     @:s public var name:String;
     @:s public var age:Int;
     public function new(n:String, a:Int) {
