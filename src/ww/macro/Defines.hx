@@ -1,6 +1,6 @@
 package ww.macro;
 
-enum abstract Defines(String) to String {
+enum abstract Defines(String) to String from String {
     var JS = 'js';
     var HxBit = 'hxbit';
     var WebWorker = 'webworker';

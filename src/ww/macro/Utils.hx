@@ -1,5 +1,6 @@
 package ww.macro;
 
+import ww.check.*;
 import haxe.io.Bytes;
 import haxe.io.BytesData;
 
@@ -27,6 +28,26 @@ class Utils {
         }
 
         return hxbit;
+    }
+    #end
+
+    #if (macro||eval)
+    @:isVar public static var runners(get, null):Array<IRunner>;
+    @:isVar public static var checkers(get, null):Array<ICheck>;
+
+    static function get_runners():Array<IRunner> {
+        if (runners == null) {
+            runners = [new Std(), new Js()];
+            runners = [for (r in runners) if (r.allowed()) r];
+        }
+        return runners;
+    }
+
+    static function get_checkers():Array<ICheck> {
+        if (checkers == null) {
+            checkers = [for (r in runners) r];
+        }
+        return checkers;
     }
     #end
 

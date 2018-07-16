@@ -17,9 +17,6 @@ using tink.MacroApi;
 private enum abstract SError(String) to String {
     var WWP01_HxBit_Func = 'Functions can not be transferred. Consider https://github.com/ncannasse/hxbit#unsupported-types';
     var WWP02_Std_Func = 'haxe.Serializer can not encode methods. See https://api.haxe.org/haxe/Serializer.html';
-    var WWP03_JS_Func = 'JavaScript\'s structured clone algorithm can not duplicate functions. See https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm';
-    var WWP04_JS_Error = 'JavaScript\'s structured clone algorithm can not duplicated errors. See https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm';
-    var WWP05_JS_DOM = 'Attempting to clone DOM nodes will likewise throw a DATA_CLONE_ERR exception. See https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm';
 }
 
 #if (macro||eval)
@@ -38,12 +35,6 @@ private abstract C(ComplexType) from ComplexType to ComplexType {
 
     public static var Bytes(get, never):C;
     static function get_Bytes():C return macro:haxe.io.Bytes;
-
-    public static var JsError(get, never):C;
-    static function get_JsError():C return macro:js.Error;
-
-    public static var JsNode(get, never):C;
-    static function get_JsNode():C return macro:js.html.Node;
 
     @:to public function toType():haxe.macro.Type {
         return this.toType().sure();
@@ -165,12 +156,13 @@ abstract Transferable<T>(T) {
         }
 
         var repeat = detectIllegalTypes.bind(_, _);
+        var loop = (t:Type, p:Position) -> for (c in ww.macro.Utils.checkers) c.detectIllegalTypes(t, p);
         switch type.reduce(false) {
-            case TInst(_.get() => cls, _) if (JS.defined() && cls.isExtern):
+            /*case TInst(_.get() => cls, _) if (JS.defined() && cls.isExtern):
                 if (type.unify(C.JsError)) WWP04_JS_Error.fatalError( pos );
-                if (type.unify(C.JsNode)) WWP05_JS_DOM.fatalError( pos );
+                if (type.unify(C.JsNode)) WWP05_JS_DOM.fatalError( pos );*/
 
-            case TInst(_.get() => cls, params) if (!cls.meta.has(CoreApi) && !cls.isInterface):
+            case x = TInst(_.get() => cls, params) if (!cls.meta.has(CoreApi) && !cls.isInterface):
                 for (f in cls.fields.get()) {
                     repeat(f.type, f.pos);
                     for (p in f.params) repeat(p.t, f.pos);
@@ -182,8 +174,9 @@ abstract Transferable<T>(T) {
                 }
 
                 for (p in params) repeat(p, pos);
+                loop(x, pos);
 
-            case TEnum(_.get() => enm, params) if (!enm.meta.has(CoreApi)):
+            case x = TEnum(_.get() => enm, params) if (!enm.meta.has(CoreApi)):
                 for (key in enm.constructs.keys()) {
                     var f = enm.constructs.get(key);
                     repeat(f.type, f.pos);
@@ -191,12 +184,15 @@ abstract Transferable<T>(T) {
                 }
 
                 for (p in params) repeat(p, pos);
+                loop(x, pos);
 
-            case TFun(_, _) if (JS.defined()):
-                WWP03_JS_Func.fatalError( pos );
+            /*case TFun(_, _) if (JS.defined()):
+                WWP03_JS_Func.fatalError( pos );*/
 
             case x:
                 if (WWP_Debug.defined()) trace( x );
+                loop(x, pos);
+
 
         }
 
@@ -204,3 +200,4 @@ abstract Transferable<T>(T) {
     #end
 
 }
+
