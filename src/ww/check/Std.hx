@@ -18,6 +18,10 @@ class Std implements IRunner {
 
     }
 
+    public function timeStamp():ExprOf<Float> {
+        return macro Math.random() + haxe.Timer.stamp() * Math.random();
+    }
+
     public function encode(expr:Expr, info:{}):Expr {
         return expr;
     }

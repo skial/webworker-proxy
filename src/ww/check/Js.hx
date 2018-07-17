@@ -50,6 +50,10 @@ class Js implements IRunner extends Std {
 
     }
 
+    override public function timeStamp():ExprOf<Float> {
+        return macro js.Browser.window.performance.now();
+    }
+
     override public function encode(expr:Expr, info:{}):Expr {
         return macro ww.macro.Utils.createStdTransferable($expr);
     }

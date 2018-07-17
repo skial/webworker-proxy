@@ -95,7 +95,7 @@ class Test extends WorkerChannel {
 
 class UserProxy extends WorkerChannel {
     public function new() {}
-    public function getUser(name:String):User {
+    public function getUser(name:String):Transferable<User> {
         return new User(name, 3 * name.length);
     }
 }

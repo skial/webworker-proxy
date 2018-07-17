@@ -6,6 +6,7 @@ import ww.macro.Defines;
 
 interface ICheck {
     public var define:Defines;
+    public function timeStamp():ExprOf<Float>;
     public function allowed():Bool;
     public function detectIllegalTypes(type:Type, pos:Position):Void;
 }

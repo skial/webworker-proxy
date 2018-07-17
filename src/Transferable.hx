@@ -59,7 +59,7 @@ abstract Transferable<T>(T) to T {
     public inline function new(v) this = v;
     @:to public inline function unwrap():T return this;
 
-    @:to function next():tink.CoreApi.Promise<T> {
+    @:to inline function next():tink.CoreApi.Promise<T> {
         return unwrap();
     }
 

@@ -216,7 +216,7 @@ class WorkerProxy {
     private static function proxy(field:ClassField, data:Data):{bodies:Map<String, Expr>, cases:Array<Case>} {
         var ctype = data.ret;
         var name = field.name;
-        var movable = false;
+        var movable = ctype.isTransferable();
         var result = { bodies: new Map(), cases: [] };
 
         if (WWP_Debug.defined()) trace( ctype );
@@ -252,7 +252,7 @@ class WorkerProxy {
                     result.cases.push( {
                         values: [macro $v{'get_$name'}],
                         guard: null,
-                        expr: (macro [raw.$name]).proxyReply()
+                        expr: (macro [raw.$name]).proxyReply(movable)
                     } );
                 }
 
@@ -262,7 +262,7 @@ class WorkerProxy {
                     result.cases.push( {
                         values: [macro $v{'set_$name'}],
                         guard: null,
-                        expr: (macro [raw.$name = data.values[0]]).proxyReply(),
+                        expr: (macro [raw.$name = data.values[0]]).proxyReply(movable),
                     } );
                 }
 
@@ -279,7 +279,7 @@ class WorkerProxy {
                 if (w.allowed()) {
                     result.bodies.set( 'set_$name', macro {
                         var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = tink.CoreApi.Future.trigger();
-                        var stamp = js.Browser.window.performance.now() + (++counter * Math.random());
+                        var stamp = ${runners[runners.length-1].timeStamp()} + (++counter * Math.random());
                         v.handle( o -> switch o {
                             case tink.CoreApi.Outcome.Success(r):
                                 var data:{id:String, values:Array<Any>, stamp:Float} = {
@@ -287,7 +287,8 @@ class WorkerProxy {
                                     stamp: stamp,
                                     values:[r],
                                     }
-                                self.postMessage( data );
+                                //self.postMessage( data );
+                                $e{(macro data).proxyReply(movable)};
                                 cache.set(data.id + data.stamp, trigger);
 
                             case tink.CoreApi.Outcome.Failure(e):
@@ -308,9 +309,8 @@ class WorkerProxy {
                     macro @:mergeBlock {
                         @:reply1 var result = $e{runners[runners.length-1].encode(macro raw.$name( $a{caseArgs}), {})};
                         //trace( result );
-                        $e{(macro [result]).proxyReply(ctype.isTransferable())};
+                        $e{(macro [result]).proxyReply(movable)};
                     }
-                    //(macro @:reply1 [raw.$name( $a{caseArgs} )]).proxyReply(movable);
                 } else {
                     macro @:mergeBlock {
                         raw.$name( $a{caseArgs} );
@@ -348,11 +348,11 @@ class WorkerProxy {
         return !v.match(AccNo | AccNever | AccCtor);
     }
 
-    private static function proxyWait(name:String, ctrigger:ComplexType, values:Expr, data:Data):Expr {
+    private static function proxyWait(name:String, ctrigger:C, values:Expr, data:Data):Expr {
         //if (ctrigger.isTransferable()) ctrigger = data.ret/*.unwrapTransfer()*/;
         return macro {
             var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = tink.CoreApi.Future.trigger();
-            var stamp = js.Browser.window.performance.now() + (++counter * Math.random());
+            var stamp = $e{runners[runners.length-1].timeStamp()} + (++counter * Math.random());
             var data:{id:String, values:Array<Any>, stamp:Float} = {
                 id:$v{name}, stamp: stamp, values:$values,
             }
@@ -362,7 +362,7 @@ class WorkerProxy {
         }
     }
 
-    private static function proxyTrigger(name:String, ctrigger:ComplexType):Expr {
+    private static function proxyTrigger(name:String, ctrigger:C):Expr {
         var movable = ctrigger.isTransferable();
         var unwrapped = movable ? ctrigger.unwrapTransfer() : ctrigger;
         return macro @:mergeBlock {
@@ -372,7 +372,7 @@ class WorkerProxy {
         }
     }
 
-    private static function proxyCheck(name:String, ctrigger:ComplexType, values:Expr):Case {
+    private static function proxyCheck(name:String, ctrigger:C, values:Expr):Case {
         return {
             values: [macro $v{name}],
             guard: macro cache.exists($v{name} + data.stamp),
@@ -392,7 +392,7 @@ class WorkerProxy {
 
     private static function isTransferable(c:C):Bool {
         /*trace(c.toString());
-        trace( '$c'.startsWith('Transferable') );*/
+        trace( c.toString(), '$c'.startsWith('Transferable') );*/
         return '$c'.startsWith('Transferable');
         //trace( (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( C.Transferable ) );
         //return (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( (macro:Transferable<haxe.io.Bytes>).toType().sure() );
