@@ -19,11 +19,11 @@ class Std implements IRunner {
     }
 
     public function encode(expr:Expr, info:{}):Expr {
-        return macro ww.macro.Utils.createStdTransferable($expr);
+        return expr;
     }
 
     public function decode(expr:Expr, info:{}):Expr {
-        return macro ww.macro.Utils.readStdTransferable($expr);
+        return expr;
     }
 
 }

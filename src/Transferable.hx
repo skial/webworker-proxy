@@ -9,6 +9,7 @@ import hxbit.Serializable;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
+import ww.macro.Utils.checkers;
 
 using haxe.macro.Context;
 using tink.MacroApi;
@@ -39,6 +40,10 @@ private abstract C(ComplexType) from ComplexType to ComplexType {
     @:to public function toType():haxe.macro.Type {
         return this.toType().sure();
     }
+
+    @:to function asString():String {
+        return toType().getID(false);
+    }
 }
 
 private enum abstract Meta(String) to String {
@@ -47,12 +52,16 @@ private enum abstract Meta(String) to String {
 }
 #end
 
-abstract Transferable<T>(T) {
+abstract Transferable<T>(T) to T {
 
     public var moved(get, never):Bool;
     inline function get_moved():Bool return this == null;
     public inline function new(v) this = v;
     @:to public inline function unwrap():T return this;
+
+    @:to function next():tink.CoreApi.Promise<T> {
+        return unwrap();
+    }
 
     @:from public static macro function of<A>(self:Expr):ExprOf<Transferable<A>> {
         var result = macro new Transferable($self);
@@ -148,7 +157,7 @@ abstract Transferable<T>(T) {
 
     }*/
 
-    private static function detectIllegalTypes(type:Type, pos:Position) {
+    public static function detectIllegalTypes(type:Type, pos:Position) {
         if (type == null) return;
 
         if (WWP_Debug) {
@@ -156,12 +165,8 @@ abstract Transferable<T>(T) {
         }
 
         var repeat = detectIllegalTypes.bind(_, _);
-        var loop = (t:Type, p:Position) -> for (c in ww.macro.Utils.checkers) c.detectIllegalTypes(t, p);
+        var check = (t:Type, p:Position) -> for (c in checkers) c.detectIllegalTypes(t, p);
         switch type.reduce(false) {
-            /*case TInst(_.get() => cls, _) if (JS.defined() && cls.isExtern):
-                if (type.unify(C.JsError)) WWP04_JS_Error.fatalError( pos );
-                if (type.unify(C.JsNode)) WWP05_JS_DOM.fatalError( pos );*/
-
             case x = TInst(_.get() => cls, params) if (!cls.meta.has(CoreApi) && !cls.isInterface):
                 for (f in cls.fields.get()) {
                     repeat(f.type, f.pos);
@@ -174,7 +179,7 @@ abstract Transferable<T>(T) {
                 }
 
                 for (p in params) repeat(p, pos);
-                loop(x, pos);
+                check(x, pos);
 
             case x = TEnum(_.get() => enm, params) if (!enm.meta.has(CoreApi)):
                 for (key in enm.constructs.keys()) {
@@ -184,15 +189,11 @@ abstract Transferable<T>(T) {
                 }
 
                 for (p in params) repeat(p, pos);
-                loop(x, pos);
-
-            /*case TFun(_, _) if (JS.defined()):
-                WWP03_JS_Func.fatalError( pos );*/
+                check(x, pos);
 
             case x:
                 if (WWP_Debug.defined()) trace( x );
-                loop(x, pos);
-
+                check(x, pos);
 
         }
 

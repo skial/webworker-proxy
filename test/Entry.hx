@@ -49,7 +49,7 @@ class Entry {
 
         #if !webworker
         bits.getUser('bobby')
-            .next( u -> u.get() )
+            //.next( u -> u.get() )
             .next( u -> '${u.name} is ${u.age} years old.' )
             .handle( tracer );
         #end
@@ -95,7 +95,7 @@ class Test extends WorkerChannel {
 
 class UserProxy extends WorkerChannel {
     public function new() {}
-    public function getUser(name:String):Transferable<User> {
+    public function getUser(name:String):User {
         return new User(name, 3 * name.length);
     }
 }

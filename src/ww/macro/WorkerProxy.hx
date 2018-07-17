@@ -3,6 +3,8 @@ package ww.macro;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
+import ww.macro.Utils.runners;
+import ww.macro.Utils.checkers;
 import tink.macro.BuildCache;
 
 using StringTools;
@@ -20,14 +22,29 @@ private typedef Data = {
     args:Array<FunctionArg>,
 }
 
+private abstract C(ComplexType) from ComplexType to ComplexType {
+    public static var Transferable(get, never):C;
+    static function get_Transferable():C return macro:Transferable<Any>;
+
+    public static var WorkerLike(get, never):C;
+    static function get_WorkerLike():C return macro:WorkerProxy.WorkerLike;
+
+    @:to public function toType():haxe.macro.Type {
+        return this.toType().sure();
+    }
+
+    @:to function asString():String {
+        return toType().getID(false);
+    }
+}
+
 class WorkerProxy {
 
-    static var WorkerLike = (macro:WorkerProxy.WorkerLike);
     static var keywords = ['postMessage', 'onmessage', 'onerror'];
     public static function build() {
-        return BuildCache.getType(Proxy, function(ctx) {
-            if (!ctx.type.unify( WorkerLike.toType().sure() )) {
-                'Type parameter ${ctx.type.getID(false)} does not unify with ${WorkerLike.toType().sure().getID(false)}.'.fatalError( ctx.pos );
+        return BuildCache.getType(Proxy, function(ctx:BuildContext) {
+            if (!ctx.type.unify( C.WorkerLike )) {
+                'Type parameter ${ctx.type.getID(false)} does not unify with ${C.WorkerLike}.'.fatalError( ctx.pos );
             }
 
             var cases:Array<Case> = [];
@@ -144,7 +161,7 @@ class WorkerProxy {
             }
 
             var className = ctx.name;
-            var ctorType:ComplexType = WebWorker ? ctype : WorkerLike;
+            var ctorType:ComplexType = WebWorker ? ctype : C.WorkerLike;
             var eswitch = {expr:ESwitch(macro data.id, cases, macro {}), pos:ctx.pos};
 
             var ctorBody = if (WebWorker) {
@@ -162,6 +179,7 @@ class WorkerProxy {
 
             var stype = WebWorker ? macro:js.html.DedicatedWorkerGlobalScope : ctype;
             var sexpr = WebWorker ? macro js.Syntax.code('self') : macro null;
+            var cworker = C.WorkerLike;
 
             var definition = macro class $className {
                 private static var counter = 0;
@@ -169,7 +187,7 @@ class WorkerProxy {
                 private static var scope:$stype = $sexpr;
 
                 private var raw:$ctorType;
-                private var self:$WorkerLike;
+                private var self:$cworker;
                 private var cache:Map<String, tink.CoreApi.FutureTrigger<Dynamic>> = new Map();
 
                 public function new(raw:$ctorType) {
@@ -203,7 +221,7 @@ class WorkerProxy {
 
         if (WWP_Debug.defined()) trace( ctype );
         
-        if (!ctype.isTransferable()) switch (macro Transferable.of((null:$ctype))).typeof() {
+        /*if (!ctype.isTransferable()) switch (macro Transferable.of((null:$ctype))).typeof() {
             case Success(t): 
                 ctype = t.toComplex();
                 movable = true;
@@ -211,7 +229,7 @@ class WorkerProxy {
             case Failure(e): 
                 trace(e);
 
-        }
+        }*/
 
         switch (macro tink.CoreApi.Promise.lift((null:$ctype))).typeof() {
             case Success(t): ctype = t.toComplex();
@@ -288,8 +306,8 @@ class WorkerProxy {
                 var caseArgs = [for (i in 0...data.args.length) macro data.values[$v{i}]];
                 var caseBody = if (data.capture) {
                     macro @:mergeBlock {
-                        @:reply1 var result = ww.macro.Utils.createStdTransferable(raw.$name( $a{caseArgs} ));
-                        trace( result );
+                        @:reply1 var result = $e{runners[runners.length-1].encode(macro raw.$name( $a{caseArgs}), {})};
+                        //trace( result );
                         $e{(macro [result]).proxyReply(ctype.isTransferable())};
                     }
                     //(macro @:reply1 [raw.$name( $a{caseArgs} )]).proxyReply(movable);
@@ -349,7 +367,7 @@ class WorkerProxy {
         var unwrapped = movable ? ctrigger.unwrapTransfer() : ctrigger;
         return macro @:mergeBlock {
             var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = cast cache.get($v{name} + data.stamp);
-            trigger.trigger(ww.macro.Utils.readStdTransferable(data.values[0]));
+            trigger.trigger($e{runners[runners.length-1].decode(macro data.values[0], {})});
             cache.remove($v{name} + data.stamp);
         }
     }
@@ -372,12 +390,24 @@ class WorkerProxy {
         : macro scope.postMessage( {id:data.id, values:$values, stamp:data.stamp} );
     }
 
-    private static function isTransferable(c:ComplexType):Bool {
-        return (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( (macro:Transferable<haxe.io.Bytes>).toType().sure() );
+    private static function isTransferable(c:C):Bool {
+        /*trace(c.toString());
+        trace( '$c'.startsWith('Transferable') );*/
+        return '$c'.startsWith('Transferable');
+        //trace( (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( C.Transferable ) );
+        //return (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( (macro:Transferable<haxe.io.Bytes>).toType().sure() );
     }
 
-    private static function unwrapTransfer(c:ComplexType):ComplexType {
-        return (macro (null:$c).unwrap()).typeof().sure().toComplex();
+    private static function unwrapTransfer(c:C):ComplexType {
+        /*trace(c.toString());
+        trace(c.unify(C.Transferable));
+        trace( (macro (null:$c)).is(c) );
+        trace( (macro Transferable.of((null:$c))).typeof().sure().getID(false) );
+        trace( '$c', '$c'.startsWith('Transferable') );*/
+        //return try (macro (null:$c).unwrap()).typeof().sure().toComplex() catch(e:Any) c;
+        return '$c'.startsWith('Transferable') 
+            ? (macro (null:$c).unwrap()).typeof().sure().toComplex()
+            : c;
     }
 
 }

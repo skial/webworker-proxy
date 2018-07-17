@@ -23,6 +23,10 @@ private abstract C(ComplexType) from ComplexType to ComplexType {
     @:to public function toType():haxe.macro.Type {
         return this.toType().sure();
     }
+
+    @:to function asString():String {
+        return toType().getID(false);
+    }
 }
 
 class Js implements IRunner extends Std {
@@ -46,13 +50,13 @@ class Js implements IRunner extends Std {
 
     }
 
-    /*public function encode(expr:Expr, info:{}):Expr {
+    override public function encode(expr:Expr, info:{}):Expr {
         return macro ww.macro.Utils.createStdTransferable($expr);
     }
 
-    public function decode(expr:Expr, info:{}):Expr {
+    override public function decode(expr:Expr, info:{}):Expr {
         return macro ww.macro.Utils.readStdTransferable($expr);
-    }*/
+    }
 
     public function wait() {}
     public function check() {}
