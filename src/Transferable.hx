@@ -52,7 +52,7 @@ private enum abstract Meta(String) to String {
 }
 #end
 
-abstract Transferable<T>(T) to T {
+@:forward abstract Transferable<T>(T) to T {
 
     public var moved(get, never):Bool;
     inline function get_moved():Bool return this == null;
