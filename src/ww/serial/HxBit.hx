@@ -1,6 +1,6 @@
 package ww.serial;
 
-#if (macro || eval)
+#if (macro||eval)
 import ww.macro.Info;
 import ww.macro.Utils;
 import haxe.macro.Type;
@@ -68,8 +68,7 @@ class HxBit #if (marcro||eval) implements ISerial #end {
     }
 
     public function encode(expr:Expr, info:Info):Expr {
-        var ctype:C = info.isMovable ? @:privateAccess WorkerProxy.unwrapTransfer(info.ret) : info.ret;
-        //trace( ctype.toString() );
+        var ctype:C = info.trigger;
         var r = ctype.unify(C.Serializable)
             ? macro @:hxbit ww.serial.HxBit.hxbit.serialize($expr).getData()
             : macro @:hxbitFallback $e{Utils.runners[index-1].encode(expr, info)};
@@ -77,9 +76,8 @@ class HxBit #if (marcro||eval) implements ISerial #end {
     }
 
     public function decode(expr:Expr, info:Info):Expr {
-        var ctype:C = info.isMovable ? @:privateAccess WorkerProxy.unwrapTransfer(info.ret) : info.ret;
+        var ctype:C = info.trigger;
         var cls = ctype.toString().resolve();
-        //trace( ctype );
         var r = ctype.unify(C.Serializable) 
             ? macro @:hxbit ww.serial.HxBit.hxbit.unserialize(haxe.io.Bytes.ofData($expr), $cls)
             : macro @:hxbitFallback $e{Utils.runners[index-1].decode(expr, info)};
