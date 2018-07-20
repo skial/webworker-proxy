@@ -147,7 +147,18 @@ class WorkerProxy {
                 macro @:mergeBlock {
                     this.raw = raw;
                     self = raw;
-                    scope.onmessage = this.onmessage;
+                    if (scope.onmessage == null) {
+                        scope.onmessage = this.onmessage;
+
+                    } else {
+                        // Store old function incase multiple workerproxies have been compiled to a single file.
+                        var oldOnMessage = scope.onmessage;
+                        scope.onmessage = e -> {
+                            this.onmessage(e);
+                            oldOnMessage(e);
+                        }
+
+                    }
                 }
             } else {
                 macro @:mergeBlock {
