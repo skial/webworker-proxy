@@ -1,5 +1,7 @@
-package ww.check;
+package ww.serial;
 
+#if (macro||eval)
+import ww.macro.Info;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
@@ -28,8 +30,11 @@ private abstract C(ComplexType) from ComplexType to ComplexType {
         return toType().getID(false);
     }
 }
+#end
 
-class Js implements IRunner extends Std {
+class Js #if (macro||eval) implements ISerial extends Std #end {
+
+    #if (macro||eval)
     public function new() {
         super(JS);
     }
@@ -54,16 +59,17 @@ class Js implements IRunner extends Std {
         return macro js.Browser.window.performance.now();
     }
 
-    override public function encode(expr:Expr, info:{}):Expr {
-        return macro ww.macro.Utils.createStdTransferable($expr);
+    override public function encode(expr:Expr, info:Info):Expr {
+        return macro @:js ww.serial.Std.createStdTransferable($expr);
     }
 
-    override public function decode(expr:Expr, info:{}):Expr {
-        return macro ww.macro.Utils.readStdTransferable($expr);
+    override public function decode(expr:Expr, info:Info):Expr {
+        return macro @:js ww.serial.Std.readStdTransferable($expr);
     }
 
-    public function wait() {}
+    /*public function wait() {}
     public function check() {}
-    public function reply() {}
+    public function reply() {}*/
+    #end
 
 }

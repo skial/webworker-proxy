@@ -1,6 +1,6 @@
 package ww.macro;
 
-import ww.check.*;
+import ww.serial.*;
 import haxe.io.Bytes;
 import haxe.io.BytesData;
 
@@ -10,44 +10,27 @@ class Utils {
         return (null:T);
     }
 
-    // @see https://github.com/runspired/webworker-performance/blob/master/public/workers/transfer.js
-    public static inline function createStdTransferable(value:Any):BytesData {
-        return Bytes.ofString(haxe.Serializer.run(value)).getData();
-    }
-
-    public static inline function readStdTransferable<T>(value:BytesData):T {
-        return haxe.Unserializer.run(Bytes.ofData(value).toString());
-    }
-
-    #if (hxbit && !(macro || eval))
-    @:isVar public static var hxbit(get, null):hxbit.Serializer;
-
-    private static function get_hxbit():hxbit.Serializer {
-        if (hxbit == null) {
-            hxbit = new hxbit.Serializer();
-        }
-
-        return hxbit;
-    }
-    #end
-
     #if (macro||eval)
-    @:isVar public static var runners(get, null):Array<IRunner>;
-    @:isVar public static var checkers(get, null):Array<ICheck>;
+    @:isVar public static var runners(get, null):Array<ISerial>;
 
-    static function get_runners():Array<IRunner> {
+    static function get_runners():Array<ISerial> {
         if (runners == null) {
-            runners = [new Std(), new Js()];
+            runners = [new Std(), new Js(), new HxBit()];
             runners = [for (r in runners) if (r.allowed()) r];
+            for (i in 0...runners.length) runners[i].index = i;
         }
         return runners;
     }
 
-    static function get_checkers():Array<ICheck> {
-        if (checkers == null) {
-            checkers = [for (r in runners) r];
+    @:isVar public static var reverseRunners(get, null):Array<ISerial>;
+
+    static function get_reverseRunners():Array<ISerial> {
+        if (reverseRunners == null) {
+            var c = runners.copy();
+            c.reverse();
+            reverseRunners = c;
         }
-        return checkers;
+        return reverseRunners;
     }
     #end
 

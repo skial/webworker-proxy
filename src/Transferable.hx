@@ -9,14 +9,13 @@ import hxbit.Serializable;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
-import ww.macro.Utils.checkers;
+import ww.macro.Utils.reverseRunners as runners;
 
 using haxe.macro.Context;
 using tink.MacroApi;
 #end
 
 private enum abstract SError(String) to String {
-    var WWP01_HxBit_Func = 'Functions can not be transferred. Consider https://github.com/ncannasse/hxbit#unsupported-types';
     var WWP02_Std_Func = 'haxe.Serializer can not encode methods. See https://api.haxe.org/haxe/Serializer.html';
 }
 
@@ -165,31 +164,36 @@ private enum abstract Meta(String) to String {
         }
 
         var repeat = detectIllegalTypes.bind(_, _);
-        var check = (t:Type, p:Position) -> for (c in checkers) c.detectIllegalTypes(t, p);
+        var check = (t:Type, p:Position) -> for (c in runners) c.detectIllegalTypes(t, p);
+        var checkClsField = (f:ClassField, s:Bool = false) -> for (c in runners) c.detectIllegalClassField(f, s);
+        var checkEnmField = (f:EnumField) -> for (c in runners) c.detectIllegalEnumField(f);
         switch type.reduce(false) {
             case x = TInst(_.get() => cls, params) if (!cls.meta.has(CoreApi) && !cls.isInterface):
+                check(x, pos);
                 for (f in cls.fields.get()) {
-                    repeat(f.type, f.pos);
+                    checkClsField(f);
+                    //repeat(f.type, f.pos);
                     for (p in f.params) repeat(p.t, f.pos);
                 }
 
                 for (s in cls.statics.get()) {
-                    repeat(s.type, s.pos);
+                    checkClsField(s, true);
+                    //repeat(s.type, s.pos);
                     for (p in s.params) repeat(p.t, s.pos);
                 }
 
                 for (p in params) repeat(p, pos);
-                check(x, pos);
 
             case x = TEnum(_.get() => enm, params) if (!enm.meta.has(CoreApi)):
+                check(x, pos);
                 for (key in enm.constructs.keys()) {
                     var f = enm.constructs.get(key);
-                    repeat(f.type, f.pos);
+                    checkEnmField(f);
+                    //repeat(f.type, f.pos);
                     for (p in f.params) repeat(p.t, f.pos);
                 }
 
                 for (p in params) repeat(p, pos);
-                check(x, pos);
 
             case x:
                 if (WWP_Debug.defined()) trace( x );

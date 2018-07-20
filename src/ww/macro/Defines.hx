@@ -8,7 +8,9 @@ enum abstract Defines(String) to String from String {
     var WWP_DisableCheck = 'wwp-disable-check';
     var WWP_Std_Serializer = 'wwp-std-serializer';
 
+    #if (macro||eval)
     @:to public function defined():Bool {
         return haxe.macro.Context.defined(this);
     }
+    #end
 }

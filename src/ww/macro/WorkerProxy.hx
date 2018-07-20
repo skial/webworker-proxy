@@ -4,7 +4,6 @@ import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
 import ww.macro.Utils.runners;
-import ww.macro.Utils.checkers;
 import tink.macro.BuildCache;
 
 using StringTools;
@@ -16,10 +15,9 @@ private enum abstract SConsts(String) to String {
     var Proxy = 'WorkerProxy';
 }
 
-private typedef Data = {
-    capture:Bool,
-    ret:ComplexType,
-    args:Array<FunctionArg>,
+private abstract E(Array<String>->String) from Array<String>->String {
+    public inline static function TypeUnify(args:Array<String>):String return 'Type parameter ${args[0]} does not unify with ${args[1]}.';
+    public inline static function Unsupported(args:Array<String>):String return 'Unsupported type ${args[0]}.';
 }
 
 private abstract C(ComplexType) from ComplexType to ComplexType {
@@ -43,9 +41,8 @@ class WorkerProxy {
     static var keywords = ['postMessage', 'onmessage', 'onerror'];
     public static function build() {
         return BuildCache.getType(Proxy, function(ctx:BuildContext) {
-            if (!ctx.type.unify( C.WorkerLike )) {
-                'Type parameter ${ctx.type.getID(false)} does not unify with ${C.WorkerLike}.'.fatalError( ctx.pos );
-            }
+            if (!ctx.type.unify( C.WorkerLike )) 
+                E.TypeUnify([ctx.type.getID(false), C.WorkerLike]).fatalError(ctx.pos);
 
             var cases:Array<Case> = [];
             var fields:Array<Field> = [];
@@ -59,7 +56,7 @@ class WorkerProxy {
                     //tstatics = cls.statics.get();
 
                 case x:
-                    'Unsupported type ${x.getID(false)}.'.fatalError( ctx.pos );
+                    E.Unsupported([x.getID(false)]).fatalError(ctx.pos);
 
             }
 
@@ -69,12 +66,13 @@ class WorkerProxy {
 
             for (f in fs) if (f.f.isPublic) {
                 var field = f.f;
+
                 if (keywords.indexOf(field.name) == -1) {
-                    var data:Data = {args:[], ret:null, capture:true};
+                    var data:Info = {args:[], ret:null, capture:true, isMovable:false, trigger:null};
                     
                     switch field.type.reduce() {
                         case TFun(args, ret):
-                            data.ret = ret.toComplex();
+                            data.ret = data.trigger = ret.toComplex();
                             data.args = args.map( a -> ({name:a.name, type:a.t.toComplex(), opt:a.opt}:FunctionArg) );
                             
                             switch data.ret {
@@ -90,7 +88,7 @@ class WorkerProxy {
                             data.args.push( {name:'v', type:data.ret, opt:false} );
                     }
 
-
+                    data.isMovable = data.ret.isTransferable();
                     var cret = data.ret;
                     var ctrigger = data.ret;
                     
@@ -100,7 +98,7 @@ class WorkerProxy {
                     }
 
                     switch ( macro ww.macro.Utils.unwrap(tink.CoreApi.Promise.lift((null:$cret))) ).typeof() {
-                        case Success(type): ctrigger = type.toComplex();
+                        case Success(type): data.trigger = ctrigger = type.toComplex();
                         case Failure(error): trace(error);
                     }
 
@@ -213,15 +211,15 @@ class WorkerProxy {
         });
     }
 
-    private static function proxy(field:ClassField, data:Data):{bodies:Map<String, Expr>, cases:Array<Case>} {
+    private static function proxy(field:ClassField, data:Info):{bodies:Map<String, Expr>, cases:Array<Case>} {
         var ctype = data.ret;
         var name = field.name;
-        var movable = ctype.isTransferable();
+        var movable = data.isMovable;
         var result = { bodies: new Map(), cases: [] };
-
+        var ctrigger = data.trigger;
         if (WWP_Debug.defined()) trace( ctype );
 
-        switch (macro tink.CoreApi.Promise.lift((null:$ctype))).typeof() {
+        /*switch (macro tink.CoreApi.Promise.lift((null:$ctype))).typeof() {
             case Success(t): ctype = t.toComplex();
             case Failure(e): trace( e );
         }
@@ -231,7 +229,7 @@ class WorkerProxy {
         switch ( macro ww.macro.Utils.unwrap(tink.CoreApi.Promise.lift((null:$ctype))) ).typeof() {
             case Success(t): ctrigger = t.toComplex();
             case Failure(e): trace( e );
-        }
+        }*/
 
         switch field.kind {
             case FieldKind.FVar(r, w) if (WebWorker.defined()):
@@ -292,19 +290,20 @@ class WorkerProxy {
                 result.cases.push( 'set_$name'.proxyCheck(ctrigger, macro data.values[0]) );
 
             case FieldKind.FMethod(_) if (WebWorker.defined()):
-                var bodyArgs = [for (arg in data.args) macro $i{arg.name}];
-                //var caseArgs = [for (i in 0...data.args.length) macro data.values[$v{i}]];
                 var caseArgs = [];
-                for (i in 0...data.args.length) if(data.args[i].type != null && data.args[i].type.isTransferable()){
-                    caseArgs.push( runners[runners.length-1].decode(macro data.values[$v{i}], {}) );
-                } else {
-                    caseArgs.push( macro data.values[$v{i}] );
-                };
+                var bodyArgs = [for (arg in data.args) macro $i{arg.name}];
+
+                for (i in 0...data.args.length) {
+                    var type = data.args[i].type;
+                    type != null && type.isTransferable() 
+                        ? caseArgs.push( runners[runners.length-1].decode( macro data.values[$v{i}], {isMovable:true, capture:true, ret:type, args:[], trigger:type} ) )
+                        : caseArgs.push( macro data.values[$v{i}] );
+                }
+                
                 var caseBody = if (data.capture) {
                     macro @:mergeBlock {
-                        @:reply1 var result = $e{runners[runners.length-1].encode(macro raw.$name( $a{caseArgs}), {})};
-                        //trace( result );
-                        $e{(macro [result]).proxyReply(movable)};
+                        @:reply1a var result = $e{runners[runners.length-1].encode(macro raw.$name( $a{caseArgs}), data)};
+                        @:reply1b $e{(macro [result]).proxyReply(movable)};
                     }
                 } else {
                     macro @:mergeBlock {
@@ -331,7 +330,8 @@ class WorkerProxy {
                     var arg = data.args[idx];
 
                     if (arg.type != null && arg.type.isTransferable()) {
-                        args.push( runners[runners.length-1].encode(macro $i{arg.name}, {}) );
+                        var data:Info = {isMovable:true, ret:arg.type, args:[], capture:true, trigger:arg.type};
+                        args.push( runners[runners.length-1].encode(macro $i{arg.name}, data) );
                         movables.push( macro data.values[$v{idx}] );
 
                     } else {
@@ -341,11 +341,13 @@ class WorkerProxy {
 
                 }
 
-                result.bodies.set( name, name.proxyWait(ctrigger, macro [$a{args}], movables.length > 0 ? macro [$a{movables}] : null) );
+                result.bodies.set( name, 
+                    name.proxyWait(ctrigger, macro [$a{args}], movables.length > 0 ? macro [$a{movables}] : null)
+                );
                 result.cases.push({
                     values: [macro $v{name}],
                     guard: macro cache.exists($v{name} + data.stamp),
-                    expr: name.proxyTrigger(ctrigger),
+                    expr: name.proxyTrigger(data),
                 });
 
             case _:
@@ -363,21 +365,20 @@ class WorkerProxy {
         return macro {
             var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = tink.CoreApi.Future.trigger();
             var stamp = $e{runners[runners.length-1].timeStamp()} + (++counter * Math.random());
-            var data:{id:String, values:Array<Any>, stamp:Float} = {
-                id:$v{name}, stamp: stamp, values:$values,
-            }
-            $e{movables == null ? macro self.postMessage( data ) : macro self.postMessage( data, $movables )};
+            var data:{id:String, values:Array<Any>, stamp:Float} = { id:$v{name}, stamp:stamp, values:$values };
+            @:wait1 $e{movables == null ? macro @:copy1 self.postMessage( data ) : macro @:transfer1 self.postMessage( data, $movables )};
             cache.set(data.id + data.stamp, trigger);
             return trigger.asFuture();
         }
     }
 
-    private static function proxyTrigger(name:String, ctrigger:C):Expr {
+    private static function proxyTrigger(name:String, data:Info):Expr {
+        var ctrigger = data.ret;
         var movable = ctrigger.isTransferable();
         var unwrapped = movable ? ctrigger.unwrapTransfer() : ctrigger;
         return macro @:mergeBlock {
             var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = cast cache.get($v{name} + data.stamp);
-            trigger.trigger($e{runners[runners.length-1].decode(macro data.values[0], {})});
+            trigger.trigger($e{runners[runners.length-1].decode(macro data.values[0], data)});
             cache.remove($v{name} + data.stamp);
         }
     }
@@ -396,25 +397,15 @@ class WorkerProxy {
 
     private static function proxyReply(values:Expr, transfer:Bool = false):Expr {
         return transfer
-        ? macro scope.postMessage( {id:data.id, values:$values, stamp:data.stamp}, $values )
-        : macro scope.postMessage( {id:data.id, values:$values, stamp:data.stamp} );
+            ? macro @:transfer2 scope.postMessage( {id:data.id, values:$values, stamp:data.stamp}, $values )
+            : macro @:copy2 scope.postMessage( {id:data.id, values:$values, stamp:data.stamp} );
     }
 
     private static function isTransferable(c:C):Bool {
-        /*trace(c.toString());
-        trace( c.toString(), '$c'.startsWith('Transferable') );*/
         return '$c'.startsWith('Transferable');
-        //trace( (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( C.Transferable ) );
-        //return (macro ww.macro.Utils.unwrap((null:$c))).typeof().sure().unify( (macro:Transferable<haxe.io.Bytes>).toType().sure() );
     }
 
     private static function unwrapTransfer(c:C):ComplexType {
-        /*trace(c.toString());
-        trace(c.unify(C.Transferable));
-        trace( (macro (null:$c)).is(c) );
-        trace( (macro Transferable.of((null:$c))).typeof().sure().getID(false) );
-        trace( '$c', '$c'.startsWith('Transferable') );*/
-        //return try (macro (null:$c).unwrap()).typeof().sure().toComplex() catch(e:Any) c;
         return '$c'.startsWith('Transferable') 
             ? (macro (null:$c).unwrap()).typeof().sure().toComplex()
             : c;
