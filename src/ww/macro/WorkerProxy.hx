@@ -25,7 +25,7 @@ private abstract C(ComplexType) from ComplexType to ComplexType {
     static function get_WorkerLike():C return macro:WorkerProxy.WorkerLike;
 
     @:to public function toType():haxe.macro.Type return this.toType().sure();
-    @:to function asString():String return toType().getID(false);
+    @:to function asString():String return this.toType().sure().getID(false);
 
 }
 

@@ -27,7 +27,7 @@ private abstract C(ComplexType) from ComplexType to ComplexType {
     }
 
     @:to function asString():String {
-        return toType().getID(false);
+        return this.toType().sure().getID(false);
     }
 }
 #end
