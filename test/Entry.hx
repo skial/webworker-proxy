@@ -49,6 +49,9 @@ class Entry {
         bits.getUser('bobby')
             .next( u -> '${u.name} is ${u.age} years old.' )
             .handle( tracer );
+        bits.getUser2('bob')
+            .next( u -> '${u.name} is ${u.age} years old.' )
+            .handle( tracer );
         #end
     }
 
@@ -95,6 +98,9 @@ class UserProxy extends WorkerChannel {
         #if webworker trace( 'worker'); #end
         #if webworker trace( name ); #end
         return new User(name, 3 * name.length);
+    }
+    public function getUser2(name:String):Promise<User> {
+        return new User(name, 4 * name.length);
     }
 }
 

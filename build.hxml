@@ -7,7 +7,7 @@
 -debug
 -dce full
 
-#-D eval-stack
+-D eval-stack
 #-D wwp-debug
 #-D wwp-disable-check
 -D analyzer-optimize

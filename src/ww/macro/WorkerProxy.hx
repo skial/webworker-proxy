@@ -49,7 +49,7 @@ class WorkerProxy {
 
             for (field in tfields) if (field.isPublic) {
                 if (keywords.indexOf(field.name) == -1) {
-                    var data:Info = {args:[], ret:null, capture:true, isMovable:false, trigger:null};
+                    var data:Info = {args:[], capture:true, isMovable:false, isPromise:false, ret:null, trigger:null};
                     
                     switch field.type.reduce() {
                         case TFun(args, ret):
@@ -67,9 +67,10 @@ class WorkerProxy {
                         case _:
                             data.ret = field.type.toComplex();
                             data.args.push( {name:'v', type:data.ret, opt:false} );
-                    }
+                    };
 
                     data.isMovable = data.ret.isTransferable();
+                    data.isPromise = data.ret.isPromised();
                     var cret = data.ret;
                     var ctrigger = data.ret;
                     
@@ -276,11 +277,47 @@ class WorkerProxy {
                 for (i in 0...data.args.length) {
                     var type = data.args[i].type;
                     type != null && type.isTransferable() 
-                        ? caseArgs.push( runners[runners.length-1].decode( macro data.values[$v{i}], {isMovable:true, capture:true, ret:type, args:[], trigger:type.unwrapTransfer()} ) )
+                        ? caseArgs.push( runners[runners.length-1].decode( macro data.values[$v{i}], {isPromise:false, isMovable:true, capture:true, ret:type, args:[], trigger:type.unwrapTransfer()} ) )
                         : caseArgs.push( macro data.values[$v{i}] );
                 }
                 
-                var caseBody = if (data.capture) {
+                var caseBody = switch [data.capture, data.isPromise] {
+                    case [true, true]:
+                        macro @:mergeBlock {
+                            raw.$name( $a{caseArgs} ).handle( o -> switch o {
+                                case tink.CoreApi.Outcome.Success(v):
+                                    @:reply1a var result = $e{runners[runners.length-1].encode(macro v, data)};
+                                    @:reply1b $e{(macro [result]).proxyReply(data)};
+
+                                case tink.CoreApi.Outcome.Failure(e): 
+                                    trace( e );
+
+                            } );
+                        }
+                    case [false, true]:
+                        macro @:mergeBlock {
+                            raw.$name( $a{caseArgs} ).handle( o -> switch o {
+                                case tink.CoreApi.Outcome.Success(v):
+                                    @:reply2 $e{(macro [tink.CoreApi.Noise.Noise]).proxyReply(data)};
+
+                                case tink.CoreApi.Outcome.Failure(e):
+                                    trace( e );
+
+                            } );
+                        }
+
+                    case [true, false]:
+                        macro @:mergeBlock {
+                            @:reply1a var result = $e{runners[runners.length-1].encode(macro raw.$name( $a{caseArgs}), data)};
+                            @:reply1b $e{(macro [result]).proxyReply(data)};
+                        }
+                    case [false, false]:
+                        macro @:mergeBlock {
+                            raw.$name( $a{caseArgs} );
+                            @:reply2 $e{(macro [tink.CoreApi.Noise.Noise]).proxyReply(data)};
+                        }
+                }
+                /*var caseBody = if (data.capture) {
                     macro @:mergeBlock {
                         @:reply1a var result = $e{runners[runners.length-1].encode(macro raw.$name( $a{caseArgs}), data)};
                         @:reply1b $e{(macro [result]).proxyReply(data)};
@@ -290,7 +327,7 @@ class WorkerProxy {
                         raw.$name( $a{caseArgs} );
                         @:reply2 $e{(macro [tink.CoreApi.Noise.Noise]).proxyReply(data)};
                     }
-                }
+                }*/
                 
                 result.bodies.set( name, 
                     data.capture 
@@ -310,7 +347,7 @@ class WorkerProxy {
                     var arg = data.args[idx];
 
                     if (arg.type != null && arg.type.isTransferable()) {
-                        var data:Info = {isMovable:true, ret:arg.type, args:[], capture:true, trigger:arg.type.unwrapTransfer()};
+                        var data:Info = {isPromise:false, isMovable:true, ret:arg.type, args:[], capture:true, trigger:arg.type.unwrapTransfer()};
                         args.push( runners[runners.length-1].encode(macro $i{arg.name}, data) );
                         movables.push( macro data.values[$v{idx}] );
 
@@ -382,6 +419,11 @@ class WorkerProxy {
 
     private static function isTransferable(c:C):Bool {
         return '$c'.startsWith('Transferable');
+    }
+
+    private static function isPromised(c:C):Bool {
+        return c.toString().toLowerCase().startsWith('tink.coreapi.promise')
+        || c.toString().toLowerCase().startsWith('tink.coreapi.future');
     }
 
     private static function unwrapTransfer(c:C):ComplexType {
