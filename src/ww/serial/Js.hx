@@ -22,13 +22,9 @@ private abstract C(ComplexType) from ComplexType to ComplexType {
     public static var JsNode(get, never):C;
     static function get_JsNode():C return macro:js.html.Node;
 
-    @:to public function toType():haxe.macro.Type {
-        return this.toType().sure();
-    }
+    @:to public function toType():haxe.macro.Type return this.toType().sure();
+    @:to function asString():String return this.toType().sure().getID(false);
 
-    @:to function asString():String {
-        return this.toType().sure().getID(false);
-    }
 }
 #end
 
