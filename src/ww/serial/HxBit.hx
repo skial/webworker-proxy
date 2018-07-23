@@ -77,7 +77,8 @@ class HxBit #if (marcro||eval) implements ISerial #end {
 
     public function decode(expr:Expr, info:Info):Expr {
         var ctype:C = info.trigger;
-        var cls = ctype.toString().resolve();
+        //var cls = ctype.toString().resolve();
+        var cls = Context.followWithAbstracts( ctype.toType() ).toComplex().toString().resolve();
         var r = ctype.unify(C.Serializable) 
             ? macro @:hxbit ww.serial.HxBit.hxbit.unserialize(haxe.io.Bytes.ofData($expr), $cls)
             : macro @:hxbitFallback $e{Utils.runners[index-1].decode(expr, info)};

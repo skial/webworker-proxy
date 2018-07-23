@@ -9,7 +9,7 @@ using tink.CoreApi;
 class Entry {
 
     public static function main() {
-        var proxy = new WorkerProxy<Test>(
+        /*var proxy = new WorkerProxy<Test>(
             #if !webworker
             new Worker('ww.js')
             #else
@@ -52,15 +52,19 @@ class Entry {
         bits.getUser2('bob')
             .next( u -> '${u.name} is ${u.age} years old.' )
             .handle( tracer );
-        #end
+        #end*/
 
-        var self = new WorkerProxy<Self>(
+        /*var self = new WorkerProxy<Self>(
             #if !webworker
             new Worker('ww.js')
             #else
             new Self()
             #end
-        );
+        );*/
+
+        var self = new Remote(new Self());
+        trace(self);
+        self.get();
 
         #if !webworker
         self
@@ -142,7 +146,7 @@ class Self extends WorkerChannel implements hxbit.Serializable {
         return new Self(name);
     }
 
-    public function get():Self {
+    public function get():Remote<Self> {
         #if webworker 
         trace('webworker thread is handling Self:${this.name}.');
         #end

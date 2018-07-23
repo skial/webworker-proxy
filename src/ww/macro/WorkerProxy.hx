@@ -39,9 +39,9 @@ class WorkerProxy {
 
             var cases:Array<Case> = [];
             var fields:Array<Field> = [];
-            var ctype = ctx.type.toComplex();
+            var ctype = ctx.type.toComplexType();
             var tfields:Array<ClassField> = [];
-
+            
             switch ctx.type.reduce() {
                 case TInst(_.get() => cls, p): tfields = cls.fields.get();
                 case x: E.Unsupported([x.getID(false)]).fatalError(ctx.pos);
@@ -58,32 +58,31 @@ class WorkerProxy {
                             
                             switch data.ret {
                                 case TPath(obj) if(obj.name == 'Void' || obj.sub == 'Void'):
-                                    data.ret = macro:tink.CoreApi.Noise;
+                                    data.ret = data.trigger = macro:tink.CoreApi.Noise;
                                     data.capture = false;
 
                                 case _:
                             }
 
                         case _:
-                            data.ret = field.type.toComplex();
+                            data.ret = data.trigger = field.type.toComplex();
                             data.args.push( {name:'v', type:data.ret, opt:false} );
                     };
-
+                    
                     data.isMovable = data.ret.isTransferable();
                     data.isPromise = data.ret.isPromised();
                     var cret = data.ret;
                     var ctrigger = data.ret;
-                    
                     switch (macro tink.CoreApi.Promise.lift((null:$cret))).typeof() {
-                        case Success(type): cret = type.toComplex();
-                        case Failure(error): trace(error); 
+                        case Success(type): cret = data.ret = type.toComplex();
+                        case Failure(error): trace(error);
                     }
 
                     switch ( macro ww.macro.Utils.unwrap(tink.CoreApi.Promise.lift((null:$cret))) ).typeof() {
                         case Success(type): data.trigger = ctrigger = type.toComplex();
                         case Failure(error): trace(error);
                     }
-
+                    
                     var pair = field.proxy(data);
 
                     cases = cases.concat( pair.cases );
@@ -209,7 +208,7 @@ class WorkerProxy {
         var ctrigger = data.trigger;
         var result = { bodies: new Map(), cases: [] };
         if (WWP_Debug.defined()) trace( ctype );
-
+        
         switch field.kind {
             case FieldKind.FVar(r, w) if (WebWorker.defined()):
                 // webworker getter
