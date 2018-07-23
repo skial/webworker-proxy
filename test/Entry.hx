@@ -53,6 +53,26 @@ class Entry {
             .next( u -> '${u.name} is ${u.age} years old.' )
             .handle( tracer );
         #end
+
+        var self = new WorkerProxy<Self>(
+            #if !webworker
+            new Worker('ww.js')
+            #else
+            new Self()
+            #end
+        );
+
+        #if !webworker
+        self
+            .open('skial')
+            .next( s -> 'The name of self is: ${s.name}.' )
+            .handle( tracer );
+        self
+            .open('bainn')
+            .next( s -> s.get() )
+            .next( s -> 'The name of self is: ${s.name}.' )
+            .handle( tracer );
+        #end
     }
 
     static function tracer(o:Outcome<String, Error>) switch o {
@@ -113,9 +133,20 @@ class User implements hxbit.Serializable {
     }
 }
 
-enum Res { 
-    None;
-    Skip;
-    Unified;
-    Error(msg:String);
+class Self extends WorkerChannel implements hxbit.Serializable {
+
+    @:s public var name:String;
+    public function new(name:String = 'bob') { this.name = name; }
+
+    public function open(name:String):Promise<Self> {
+        return new Self(name);
+    }
+
+    public function get():Self {
+        #if webworker 
+        trace('webworker thread is handling Self:${this.name}.');
+        #end
+        return this;
+    }
+
 }
