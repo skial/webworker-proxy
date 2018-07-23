@@ -9,8 +9,6 @@ A Haxe macro for generating a Web Worker proxy.
 
 ## Installation
 
-Add `-lib webworker-proxy` once you've added webworker-proxy as a dependancy.
-
 ### Using [lix-pm](https://github.com/lix-pm/lix.client#readme)
 
 `lix install gh:skial/webworker-proxy`
@@ -19,6 +17,9 @@ Add `-lib webworker-proxy` once you've added webworker-proxy as a dependancy.
 
 `haxelib git webworker-proxy https://github.com/skial/webworker-proxy.git`
 
+---
+
+Add `-lib webworker-proxy` once you've added webworker-proxy as a dependancy.
 
 ## Defines
 
