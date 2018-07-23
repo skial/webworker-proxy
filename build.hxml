@@ -1,4 +1,5 @@
 -lib tink_macro
+-lib hxbit
 
 -cp src
 -cp test
@@ -6,6 +7,9 @@
 -debug
 -dce full
 
+-D eval-stack
+#-D wwp-debug
+#-D wwp-disable-check
 -D analyzer-optimize
 
 -main Entry
@@ -21,6 +25,6 @@
 
 -js bin/ww.js
 
---next
+#--next
 
---cmd exit
+#--cmd exit

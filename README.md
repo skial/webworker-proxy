@@ -5,11 +5,9 @@ A Haxe macro for generating a Web Worker proxy.
 ## Limitations
 
 - Static methods _are not_ proxied.
-- Values are transfered between main and worker threads using the [structure clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm) implemented by browsers.
+- See [target limitions below](#target-limitations) for more information.
 
 ## Installation
-
-Add `-lib webworker-proxy` once you've added webworker-proxy as a dependancy.
 
 ### Using [lix-pm](https://github.com/lix-pm/lix.client#readme)
 
@@ -19,11 +17,15 @@ Add `-lib webworker-proxy` once you've added webworker-proxy as a dependancy.
 
 `haxelib git webworker-proxy https://github.com/skial/webworker-proxy.git`
 
+---
+
+Add `-lib webworker-proxy` once you've added webworker-proxy as a dependancy.
 
 ## Defines
 
 - `-D webworker`
-- `-D debug_workerproxy` Will trace out what the macro is generating.
+- `-D wwp-debug` Will print out what the various macro's are generating.
+- `-D wwp-disable-check` Prevents `Transferable<Type>` from checking the `Type` can be transferred.
 
 ## Usage
 
@@ -72,3 +74,10 @@ class Main {
 -D webworker
 -js bin/ww.js
 ```
+
+## Target Limitations
+
+### JavaScript
+
+- See [supported types](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#Supported_types).
+- Values are transfered between main and worker threads using the [structure clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm) implemented by browsers.
