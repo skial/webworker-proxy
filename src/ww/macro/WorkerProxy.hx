@@ -166,7 +166,7 @@ class WorkerProxy {
                     self.onmessage = this.onmessage;
                 }
             }
-            
+
             var cworker = C.WorkerLike;
             var self = ctx.name.asComplexType();
 
@@ -219,10 +219,10 @@ class WorkerProxy {
                 // webworker getter
                 result.bodies.set( name, macro null );
                 if (r.allowed()) {
-                    result.bodies.set( 'get_$name', macro raw.$name );
+                    result.bodies.set( 'get_${name}', macro raw.$name );
                     result.cases.push( {
                         guard: null,
-                        values: [macro $v{'get_$name'}],
+                        values: [macro $v{'get_${name}'}],
                         expr: (macro [raw.$name]).proxyReply(data)
                     } );
 
@@ -230,10 +230,10 @@ class WorkerProxy {
 
                 // webworker setter
                 if (w.allowed()) {
-                    result.bodies.set( 'set_$name', macro v.next( r -> raw.$name = r ) );
+                    result.bodies.set( 'set_${name}', macro v.next( r -> raw.$name = r ) );
                     result.cases.push( {
                         guard: null,
-                        values: [macro $v{'set_$name'}],
+                        values: [macro $v{'set_${name}'}],
                         expr: (macro [raw.$name = data.values[0]]).proxyReply(data),
                     } );
 
@@ -243,20 +243,20 @@ class WorkerProxy {
                 result.bodies.set( name, macro null );
                 // main thread getter
                 if (r.allowed()) {
-                    result.bodies.set( 'get_$name', 'get_$name'.proxyWait(macro [], data) );
-                    result.cases.push( 'get_$name'.proxyCheck(ctrigger, macro data.values[0]) );
+                    result.bodies.set( 'get_${name}', 'get_${name}'.proxyWait(macro [], data) );
+                    result.cases.push( 'get_${name}'.proxyCheck(ctrigger, macro data.values[0]) );
 
                 }
                 
                 // main thread setter
                 if (w.allowed()) {
-                    result.bodies.set( 'set_$name', macro {
+                    result.bodies.set( 'set_${name}', macro {
                         var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = tink.CoreApi.Future.trigger();
                         var stamp = ${runners[runners.length-1].timeStamp()} + (++counter * Math.random());
                         v.handle( o -> switch o {
                             case tink.CoreApi.Outcome.Success(r):
                                 var data:{id:String, values:Array<Any>, stamp:Float} = {
-                                    id:$v{'set_$name'},
+                                    id:$v{'set_${name}'},
                                     stamp: stamp,
                                     values:[r],
                                 }
@@ -272,7 +272,7 @@ class WorkerProxy {
 
                 }
 
-                result.cases.push( 'set_$name'.proxyCheck(ctrigger, macro data.values[0]) );
+                result.cases.push( 'set_${name}'.proxyCheck(ctrigger, macro data.values[0]) );
 
             case FieldKind.FMethod(_) if (WebWorker.defined()):
                 var caseArgs = [];
