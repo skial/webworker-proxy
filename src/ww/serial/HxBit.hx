@@ -7,6 +7,7 @@ import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
 import ww.macro.WorkerProxy;
+import tink.macro.BuildCache;
 
 using haxe.macro.Context;
 using tink.MacroApi;
@@ -91,6 +92,10 @@ class HxBit #if (marcro||eval) implements ISerial #end {
 
     public function reply(data:Expr, info:Info):Expr {
         return Utils.runners[index-1].reply(data, info);
+    }
+
+    public function extraFields(ctx:BuildContext):Array<Field> {
+        return Utils.runners[index-1].extraFields(ctx);
     }
 
     #end

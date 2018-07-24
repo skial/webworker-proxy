@@ -8,6 +8,7 @@ import ww.macro.Info;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
+import tink.macro.BuildCache;
 #end
 
 class Std #if (macro||eval) implements ISerial #end {
@@ -63,6 +64,10 @@ class Std #if (macro||eval) implements ISerial #end {
 
     public function reply(data:Expr, info:Info):Expr {
         throw 'Not Implemented.';
+    }
+
+    public function extraFields(ctx:BuildContext):Array<Field> {
+        return [];   
     }
 
     #end

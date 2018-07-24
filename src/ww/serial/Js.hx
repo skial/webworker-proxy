@@ -5,6 +5,7 @@ import ww.macro.Info;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
+import tink.macro.BuildCache;
 import ww.macro.WorkerProxy as WP;
 
 using haxe.macro.Context;
@@ -83,6 +84,20 @@ class Js #if (macro||eval) implements ISerial extends Std #end {
         return info.isMovable
             ? macro @:js scope.postMessage( $data )
             : macro @:js scope.postMessage( $data, cast $data.values );
+    }
+
+    override public function extraFields(ctx:BuildContext):Array<Field> {
+        var results = super.extraFields(ctx);
+        var stype = WebWorker ? macro:js.html.DedicatedWorkerGlobalScope : ctx.type.toComplex();
+        var sexpr = WebWorker ? macro js.Syntax.code('self') : macro null;
+
+        var fields = (macro class Temp {
+            private static var scope:$stype = $sexpr;
+        }).fields;
+
+        for (field in fields) results.push( field );
+
+        return results;
     }
 
     #end

@@ -4,12 +4,15 @@ import ww.macro.Info;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
+import tink.macro.BuildCache;
 
 interface ISerial {
     public var index:Int;
     public var define:Defines;
-    public function timeStamp():ExprOf<Float>;
+
     public function allowed():Bool;
+    public function timeStamp():ExprOf<Float>;
+
     public function detectIllegalTypes(type:Type, pos:Position):Void;
     public function detectIllegalClassField(field:ClassField, isStatic:Bool = false):Void;
     public function detectIllegalEnumField(field:EnumField):Void;
@@ -19,4 +22,6 @@ interface ISerial {
 
     public function send(data:Expr, info:Info):Expr;
     public function reply(data:Expr, info:Info):Expr;
+
+    public function extraFields(ctx:BuildContext):Array<Field>;
 }
