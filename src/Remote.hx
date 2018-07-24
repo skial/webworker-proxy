@@ -20,6 +20,8 @@ using tink.CoreApi;
         var ctype = type.toComplex();
         var proxy = macro:WorkerProxy<$ctype>;
         var result = macro null;
+        var resolved = proxy.toType().sure().toComplex();
+        var ident = resolved.toString();
         
         switch type.reduce() {
             case TInst(_.get() => cls, params):
@@ -29,20 +31,21 @@ using tink.CoreApi;
                     field = f;
                     break;
                 }
-                var tpath = 'WorkerProxy'.asTypePath([TPType(ctype)]);
+                /*var tpath = 'WorkerProxy'.asTypePath([TPType(ctype)]);
                 var ctor = if (!Context.defined('webworker')) {
                     macro new js.html.Worker('ww.js');
                 } else {
                     /*var tp = type.getID(false).asTypePath();
                     macro new $tp();*/
-                    self;
-                }
+                    /*self;
+                }*/
 
                 if (field != null) {
                     result = macro @:mergeBlock {
-                        trace('remote made');
-                        var proxy:$proxy = new $tpath($ctor);
-                        proxy.$name;
+                        //trace('remote made');
+                        /*var proxy:$proxy = new $tpath($ctor);
+                        proxy.$name;*/
+                        @:privateAccess $e{ident.resolve()}.inst.$name;
                     }
 
                 } else {

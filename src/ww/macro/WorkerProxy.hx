@@ -170,6 +170,7 @@ class WorkerProxy {
             var stype = WebWorker ? macro:js.html.DedicatedWorkerGlobalScope : ctype;
             var sexpr = WebWorker ? macro js.Syntax.code('self') : macro null;
             var cworker = C.WorkerLike;
+            var self = ctx.name.asComplexType();
 
             var definition = macro class $className {
                 private static var counter = 0;
@@ -179,8 +180,15 @@ class WorkerProxy {
                 private var self:$cworker;
                 private var cache:Map<String, tink.CoreApi.FutureTrigger<Dynamic>> = new Map();
 
+                @:isVar private static var inst(default, set):$self;
+                private static function set_inst(v:$self):$self {
+                    if (inst == null) inst = v;
+                    return inst;
+                }
+
                 public function new(raw:$ctorType) {
                     $ctorBody;
+                    inst = this;
                 }
 
                 public function onmessage(e:js.html.MessageEvent):Void {

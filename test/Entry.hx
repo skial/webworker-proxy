@@ -54,17 +54,17 @@ class Entry {
             .handle( tracer );
         #end*/
 
-        /*var self = new WorkerProxy<Self>(
+        var self = new WorkerProxy<Self>(
             #if !webworker
             new Worker('ww.js')
             #else
             new Self()
             #end
-        );*/
+        );
 
-        var self = new Remote(new Self());
+        /*var self = new Remote(new Self());
         trace(self);
-        self.get();
+        self.get();*/
 
         #if !webworker
         self
@@ -73,7 +73,7 @@ class Entry {
             .handle( tracer );
         self
             .open('bainn')
-            .next( s -> s.get() )
+            .next( s -> (s:Remote<Self>).get() )
             .next( s -> 'The name of self is: ${s.name}.' )
             .handle( tracer );
         #end
@@ -146,7 +146,7 @@ class Self extends WorkerChannel implements hxbit.Serializable {
         return new Self(name);
     }
 
-    public function get():Remote<Self> {
+    public function get():Self {
         #if webworker 
         trace('webworker thread is handling Self:${this.name}.');
         #end
