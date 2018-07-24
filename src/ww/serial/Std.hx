@@ -56,6 +56,15 @@ class Std #if (macro||eval) implements ISerial #end {
     public function decode(expr:Expr, info:Info):Expr {
         return macro @:std $expr;
     }
+
+    public function send(data:Expr, info:Info):Expr {
+        throw 'Not Implemented.';
+    }
+
+    public function reply(data:Expr, info:Info):Expr {
+        throw 'Not Implemented.';
+    }
+
     #end
 
 }

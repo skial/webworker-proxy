@@ -84,6 +84,15 @@ class HxBit #if (marcro||eval) implements ISerial #end {
             : macro @:hxbitFallback $e{Utils.runners[index-1].decode(expr, info)};
         return r;
     }
+
+    public function send(data:Expr, info:Info):Expr {
+        return Utils.runners[index-1].send(data, info);
+    }
+
+    public function reply(data:Expr, info:Info):Expr {
+        return Utils.runners[index-1].reply(data, info);
+    }
+
     #end
 
 }

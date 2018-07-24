@@ -5,6 +5,7 @@ import ww.macro.Info;
 import haxe.macro.Type;
 import haxe.macro.Expr;
 import ww.macro.Defines;
+import ww.macro.WorkerProxy as WP;
 
 using haxe.macro.Context;
 using tink.MacroApi;
@@ -63,9 +64,27 @@ class Js #if (macro||eval) implements ISerial extends Std #end {
         return macro @:js ww.serial.Std.readStdTransferable($expr);
     }
 
-    /*public function wait() {}
-    public function check() {}
-    public function reply() {}*/
+    override public function send(data:Expr, info:Info):Expr {
+        var movables = [];
+        for (idx in 0...info.args.length) {
+            var arg = info.args[idx];
+            if (arg.type != null && @:privateAccess WP.isTransferable(arg.type)) {
+                movables.push( macro data.values[$v{idx}] );
+
+            }
+
+        }
+        return movables.length > 0
+            ? macro @:js self.postMessage( $data, $a{movables} )
+            : macro @:js self.postMessage( $data );
+    }
+
+    override public function reply(data:Expr, info:Info):Expr {
+        return info.isMovable
+            ? macro @:js scope.postMessage( $data )
+            : macro @:js scope.postMessage( $data, cast $data.values );
+    }
+
     #end
 
 }

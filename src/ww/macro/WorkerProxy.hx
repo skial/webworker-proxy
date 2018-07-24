@@ -246,7 +246,7 @@ class WorkerProxy {
                 result.bodies.set( name, macro null );
                 // main thread getter
                 if (r.allowed()) {
-                    result.bodies.set( 'get_$name', 'get_$name'.proxyWait(ctrigger, macro []) );
+                    result.bodies.set( 'get_$name', 'get_$name'.proxyWait(macro [], data) );
                     result.cases.push( 'get_$name'.proxyCheck(ctrigger, macro data.values[0]) );
 
                 }
@@ -348,15 +348,15 @@ class WorkerProxy {
 
             case FieldKind.FMethod(_):
                 var args = [];
-                var movables = [];
+                //var movables = [];
 
                 for (idx in 0...data.args.length) {
                     var arg = data.args[idx];
 
                     if (arg.type != null && arg.type.isTransferable()) {
                         var data:Info = {isPromise:false, isMovable:true, ret:arg.type, args:[], capture:true, trigger:arg.type.unwrapTransfer()};
-                        args.push( runners[runners.length-1].encode(macro $i{arg.name}, data) );
-                        movables.push( macro data.values[$v{idx}] );
+                        args.push( macro @:move $e{runners[runners.length-1].encode(macro $i{arg.name}, data)} );
+                        //movables.push( macro data.values[$v{idx}] );
 
                     } else {
                         args.push( macro $i{arg.name} );
@@ -366,7 +366,8 @@ class WorkerProxy {
                 }
 
                 result.bodies.set( name, 
-                    name.proxyWait(ctrigger, macro [$a{args}], movables.length > 0 ? macro [$a{movables}] : null)
+                    //name.proxyWait(ctrigger, macro [$a{args}], movables.length > 0 ? macro [$a{movables}] : null)
+                    name.proxyWait(macro [$a{args}], data)
                 );
 
                 result.cases.push({
@@ -386,12 +387,15 @@ class WorkerProxy {
         return !v.match(AccNo | AccNever | AccCtor);
     }
 
-    private static function proxyWait(name:String, ctrigger:C, values:Expr, ?movables:Expr):Expr {
+    //private static function proxyWait(name:String, ctrigger:C, values:Expr, ?movables:Expr):Expr {
+    private static function proxyWait(name:String, values:Expr, info:Info):Expr {
+        var ctrigger:C = info.trigger;
         return macro {
             var trigger:tink.CoreApi.FutureTrigger<$ctrigger> = tink.CoreApi.Future.trigger();
             var stamp = $e{runners[runners.length-1].timeStamp()} + (++counter * Math.random());
             var data:{id:String, values:Array<Any>, stamp:Float} = { id:$v{name}, stamp:stamp, values:$values };
-            @:wait1 $e{movables == null ? macro @:copy1 self.postMessage( data ) : macro @:transfer1 self.postMessage( data, $movables )};
+            //@:wait1 $e{movables == null ? macro @:copy1 self.postMessage( data ) : macro @:transfer1 self.postMessage( data, $movables )};
+            $e{ runners[runners.length-1].send( macro data, info ) };
             cache.set(data.id + data.stamp, trigger);
             return trigger.asFuture();
         }
@@ -419,9 +423,10 @@ class WorkerProxy {
     }
 
     private static function proxyReply(values:Expr, info:Info):Expr {
-        return info.isMovable
+        /*return info.isMovable
             ? macro @:transfer2 scope.postMessage( {id:data.id, values:$values, stamp:data.stamp}, $values )
-            : macro @:copy2 scope.postMessage( {id:data.id, values:$values, stamp:data.stamp} );
+            : macro @:copy2 scope.postMessage( {id:data.id, values:$values, stamp:data.stamp} );*/
+        return runners[runners.length-1].reply( macro {id:data.id, values:$values, stamp:data.stamp}, info );
     }
 
     private static function isTransferable(c:C):Bool {

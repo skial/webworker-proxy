@@ -16,4 +16,7 @@ interface ISerial {
 
     public function encode(expr:Expr, info:Info):Expr;
     public function decode(expr:Expr, info:Info):Expr;
+
+    public function send(data:Expr, info:Info):Expr;
+    public function reply(data:Expr, info:Info):Expr;
 }
