@@ -5,7 +5,7 @@ A Haxe macro for generating a Web Worker proxy.
 ## Limitations
 
 - Static methods _are not_ proxied.
-- See [target limitions below](#target-limitations) for more information.
+- See [target limitations below](#target-limitations) for more information.
 
 ## Installation
 
